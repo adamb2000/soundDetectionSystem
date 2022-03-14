@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <h1>SOUND DETECTION - Adam Brickell</h1>
+    <title>Library Sound Detection</title>
+    <style>
+        html {
+
+            width: 1200px;
+            height: 800px;
+        }
+
+        #background {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background-repeat: no-repeat;
+            border: 10px solid green;
+
+        }
+
+
+        .item {
+            position: absolute;
+            width: 50px;
+            height: 100px;
+            background-color: red;
+        }
+
+
+    </style>
+</head>
+
+<body>
+    <div id="background">
+        <div id="itemContainer"></div>
+    </div>
+
+
+
+    <script>
+        const items = [];
+
+        async function loadPos(){
+            const response = await fetch('format.json');
+            if(response.status === 200){
+                const body = await response.json();
+                for(let i=0;i<body.length;i++){
+                    createdDiv = initSound(body[i].zone,body[i].x,body[i].y,body[i].width,body[i].height);
+                    items.push({ID:body[i].ID,active:false,avgVol:0,div:createdDiv});
+                }
+            }
+            else{
+                console.log("error getting position details");
+            }
+        }
+
+        function initSound(zone,x,y,w,h){
+            let node = document.createElement("DIV");
+            node.setAttribute('class', 'item');
+            node.setAttribute('id', zone);
+            document.getElementById("itemContainer").appendChild(node);
+            return moveItem(zone,x,y,w,h);
+
+        }
+
+        function moveItem(zone,x,y,w,h){
+            let div = document.getElementById(zone);
+            div.style.transform = "translate3d(" + x + "px," + y + "px, 0)";
+            div.style.height = h + "px";
+            div.style.width = w + "px";
+            return div;
+        }
+
+        async function backgroundImage() {
+            const image = await fetch("layout.jpg")
+                .then(response => { return response.blob() })
+                .then(blob => { return URL.createObjectURL(blob) })
+            let data = await fetch("imageSize")
+                .then(body => { return body.text() })
+                .then(text => { return text.split(",") });
+            let background = document.getElementById("background");
+            background.style.height = data[1] + "px";
+            background.style.width = data[0] + "px";
+            background.style.position = "relative";
+            background.style.backgroundImage = "url(" + image + ")";
+        }
+
+
+
+
+
+
+        async function getActiveList(){
+            const response = await fetch('volume.txt');
+            if(response.status===200){
+                var lines = await response.text();
+                const activeItems = [];
+                if(lines !== "BLANK"){
+                    lines = lines.split("\n");
+                    for(let i=0;i<lines.length;i++){    
+                        let line = lines[i].split(",");
+                        activeItems.push(line[0]);
+                        const item = items.find(({ ID })=> ID ===line[0]);
+                        item.avgVol = line[1];
+                    }
+                }
+                for(let i=0;i<items.length;i++){
+                    if(activeItems.includes(items[i].ID)){
+                        items[i].active = true;
+                    }
+                    else{
+                        items[i].active = false;
+                    }
+                }
+                
+            }
+            else{
+                console.log("error getting volume data");
+            }
+            updateDivVol();
+        }
+
+        function updateDivVol(){
+            for(let i=0;i<items.length;i++){
+                if(items[i].active){
+                    items[i].div.style.backgroundColor = "red";
+                    let vol = items[i].avgVol;
+                    if(vol<600000){
+                        items[i].div.style.backgroundColor = "rgba(0,255,0,0.3)";
+                    }
+                    else{
+                        var r = Math.trunc(vol/39215);
+                        var g = 255-r;
+                        var o = r/255;
+                        
+                        if(r>255){
+                            r = 255;
+                            o = 0.8;
+
+                        }
+                        
+                        console.log("rgba("+r+","+g+",0,"+o+")")
+                        items[i].div.style.backgroundColor = "rgba("+r+","+g+",0,"+o+")";
+                        
+                    }
+                }
+                else{
+                    items[i].div.style.backgroundColor = "black";
+                    items[i].div.style.opacity = 0.4;
+                }
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        backgroundImage();
+        loadPos();
+        window.setInterval(getActiveList, 80);
+
+    
+
+    </script>
+</body>
+
+</html>

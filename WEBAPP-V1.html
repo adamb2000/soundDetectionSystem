@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+    <h1>SOUND DETECTION - Adam Brickell</h1>
+    <title>Library Sound Detection</title>
+    <style>
+        html {
+
+            width: 1200px;
+            height: 800px;
+        }
+
+        #background {
+            position: absolute;
+            /*background-image: url("layout.jpg");*/
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background-repeat: no-repeat;
+            border: 10px solid green;
+
+        }
+
+
+
+        .item {
+            position: absolute;
+            width: 50px;
+            height: 100px;
+            background-color: red;
+            border: 3px solid grey;
+
+        }
+
+        .itemOverlay {
+            position: absolute;
+            touch-action: none;
+
+            width: 50px;
+            height: 100px;
+            background-color: black;
+            border: 3px solid grey;
+            border-bottom: 1px solid grey;
+
+        }
+
+        .itemOverlay:hover {
+            cursor: pointer;
+            background-color: blue;
+            border: 3px solid blue;
+        }
+
+        .item:active {
+            background-color: Red;
+        }
+
+        .item:hover {
+            cursor: pointer;
+            background-color: Red;
+        }
+    </style>
+</head>
+
+<body>
+    <button type="button" id="update">SAVE LAYOUT</button>
+    SIZE:
+    <input type="range" min="1" max="100" id="slider">
+    <div id="background">
+        <div id="itemContainer"></div>
+    </div>
+
+
+
+    <script>
+        const activeItems = new Array();
+
+        const items = new Array();
+        const itemsID = new Array();
+        const itemsX = new Array();
+        const itemsY = new Array();
+        const overlaySize = new Array();
+
+        var itemIndex;
+        var X;
+        var Y;
+        var size;
+        var background = document.querySelector("#background");
+        var updateButton = document.querySelector("#update");
+        var slider = document.querySelector("#slider");
+        var active = false;
+
+        background.addEventListener("mousedown", startMove);
+        background.addEventListener("mouseup", endMove);
+        background.addEventListener("mousemove", duringMove);
+        updateButton.addEventListener("click", saveData);
+
+
+        function getActiveList() {
+            loadData('DevVolume.txt');
+        }
+
+        function loadData(file) {
+            fetch(file)
+                .then(response => response.text())
+                .then(data => readFile(data));
+        }
+
+        function readFile(text) {
+            var line;
+            if (text != "BLANK") {
+                lines = text.split("\n");
+                if (lines[0].split(",").length == 3) {
+                    for (let i = 0; i < text.split("\n").length; i++) {
+                        const data = lines[i].split(",");
+                        restoreDiv(data[0]);
+                        initSound(data[0], Number(data[1]), Number(data[2]));
+                        itemIndex = i;
+                        moveItem(Number(data[1]), Number(data[2]));
+                        activeItems.push(data[0]);
+                    }
+                }
+                else if (lines[0].split(",").length == 2) {
+                    const activeID = new Array();
+                    const activeVol = new Array();
+                    for (let i = 0; i < text.split("\n").length; i++) {
+                        const data = lines[i].split(",")
+                        activeID.push(data[0]);
+                        activeVol.push(data[1]);
+                    }
+                    updateActive(activeID, activeVol)
+                }
+                else {
+                    let value = Number(text);
+                    slider.value = value;
+                    resizeDiv(value);
+
+                }
+            }
+            else {
+                updateActive([], "");
+
+            }
+        }
+
+
+        function restoreDiv(id) {
+            let node = document.createElement("DIV");
+            node.setAttribute('class', 'item');
+            node.setAttribute('id', id)
+            document.getElementById("itemContainer").appendChild(node);
+
+            let overlayID = id + "Overlay"
+            let nodeOverlay = document.createElement("DIV");
+            nodeOverlay.setAttribute('class', 'itemOverlay');
+            nodeOverlay.setAttribute('id', overlayID)
+            document.getElementById("itemContainer").appendChild(nodeOverlay);
+
+            if (itemsID.includes(id)) {
+                itemIndex = itemsID.indexOf(id);
+                items.splice(itemIndex, 1, document.querySelector("#" + id));
+                moveItem(itemsX[itemIndex], itemsY[itemIndex]);
+            }
+            resizeDiv(size);
+
+        }
+
+
+        function newDiv(id) {
+            let node = document.createElement("DIV");
+            node.setAttribute('class', 'item');
+            node.setAttribute('id', id)
+            document.getElementById("itemContainer").appendChild(node);
+
+            let overlayID = id + "Overlay"
+            let nodeOverlay = document.createElement("DIV");
+            nodeOverlay.setAttribute('class', 'itemOverlay');
+            nodeOverlay.setAttribute('id', overlayID)
+            document.getElementById("itemContainer").appendChild(nodeOverlay);
+            initSound(id, 0, 0);
+            resizeDiv(size);
+        }
+
+
+        function removeDiv(id) {
+            var div = document.getElementById(id);
+            var divOverlay = document.getElementById(id + "Overlay");
+            div.remove();
+            divOverlay.remove();
+        }
+
+
+        function initSound(id, x, y) {
+            items.push(document.querySelector("#" + id));
+            overlaySize.push(100);
+            itemsID.push(id);
+            itemsX.push(x);
+            itemsY.push(y);
+            itemIndex = itemsID.indexOf(id);
+            moveItem(itemsX[itemIndex], itemsY[itemIndex]);
+        }
+
+
+        function updateActive(activeID, Vol) {
+            if (activeID.length != 0) {
+                for (let i = 0; i < items.length; i++) {
+                    if (activeID.includes(itemsID[i])) {
+                        if (!(activeItems.includes(itemsID[i]))) {
+                            activeItems.push(itemsID[i]);
+                            restoreDiv(itemsID[i]);
+                        }
+                    }
+                    else {
+                        if (activeItems.includes(itemsID[i])) {
+
+                            removeDiv(itemsID[i]);
+
+                            const index = activeItems.indexOf(itemsID[i]);
+                            activeItems.splice(index, 1);
+                        }
+                    }
+                }
+                for (let i = 0; i < activeID.length; i++) {
+                    if (!(itemsID.includes(activeID[i]))) {
+                        newDiv(activeID[i]);
+                        activeItems.push(activeID[i]);
+                    }
+                }
+            }
+
+            else {
+                for (let i = 0; i < activeItems.length; i++) {
+                    removeDiv(activeItems[i]);
+                }
+                let length = activeItems.length
+                for (let i = 0; i < length; i++) {
+                    activeItems.pop();
+                }
+
+            }
+            updateVolume(activeID, Vol)
+        }
+
+
+        function updateVolume(active, vol) {
+            for (let i = 0; i < active.length; i++) {
+                let tempItem = document.getElementById(active[i]);
+                let tempItemOverlay = document.getElementById(active[i] + "Overlay");
+                let tempIndex = itemsID.indexOf(active[i]);
+
+                if (vol[i] < 500000) {
+                    overlaySize[tempIndex] = 1;
+                }
+                else if (vol[i] > 30000000) {
+                    overlaySize[tempIndex] = 0;
+                    tempItem.style.backgroundColor = "#FF0000";
+                }
+                else if (vol[i] > 15000000) {
+                    let value = vol[i] / 30000000;
+                    overlaySize[tempIndex] = 1 - value.toFixed(2);
+                    tempItem.style.backgroundColor = "#FFA500";
+                }
+                else {
+                    let value = vol[i] / 30000000;
+                    overlaySize[tempIndex] = 1 - value.toFixed(2);
+                    tempItem.style.backgroundColor = "#FFFF00";
+                }
+
+            }
+
+            resizeDiv(size);
+
+        }
+
+
+        slider.oninput = function () {
+            resizeDiv(this.value);
+        }
+
+        function saveData() {
+            sendPostRequest(2);
+            sendPostRequest(1);
+
+        }
+
+        function sendPostRequest(x) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("POST", "localhost");
+            xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8");
+            xhr.send(getDataToSave(x));
+        }
+
+
+        function getDataToSave(x) {
+            let dataString = "";
+            if (x == 1) {
+                const len = items.length
+                for (let i = 0; i < len; i++) {
+                    if (i == (len - 1)) {
+                        dataString += itemsID[i] + "," + itemsX[i].toString() + "," + itemsY[i].toString();
+                    }
+                    else {
+                        dataString += itemsID[i] + "," + itemsX[i].toString() + "," + itemsY[i].toString() + "\n";
+                    }
+                }
+            }
+            else {
+                dataString += Number(size);
+            }
+            return dataString
+        }
+
+
+
+        function resizeDiv(value) {
+            for (let i = 0; i < activeItems.length; i++) {
+                let tempItem = document.getElementById(activeItems[i]);
+                let tempItemOverlay = document.getElementById(activeItems[i] + "Overlay");
+                let tempIndex = itemsID.indexOf(activeItems[i]);
+
+                size = value;
+                tempItem.style.height = value * 4 + "px";
+                tempItem.style.width = value * 2 + "px";
+                tempItemOverlay.style.height = value * 4 * overlaySize[tempIndex] + "px";
+                tempItemOverlay.style.width = value * 2 + "px";
+            }
+        }
+
+
+        function findItem(e) {
+            for (let i = 0; i < activeItems.length; i++) {
+                let tempIndex = itemsID.indexOf(activeItems[i]);
+                let tempOverlay = document.getElementById(activeItems[i] + "Overlay");
+
+                if (e.target === items[tempIndex] || e.target === tempOverlay) {
+                    itemIndex = tempIndex;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+        function moveItem(x, y) {
+            let overlay = document.getElementById(itemsID[itemIndex] + "Overlay");
+            items[itemIndex].style.transform = "translate3d(" + x + "px," + y + "px, 0)";
+            overlay.style.transform = "translate3d(" + x + "px," + y + "px, 0)";
+
+        }
+
+
+        function startMove(e) {
+            if (findItem(e)) {
+                active = true;
+                X = e.clientX - itemsX[itemIndex];
+                Y = e.clientY - itemsY[itemIndex];
+            }
+
+        }
+
+
+        function endMove(e) {
+            active = false;
+        }
+
+
+        function duringMove(e) {
+            if (active) {
+                itemsX[itemIndex] = e.clientX - X;
+                itemsY[itemIndex] = e.clientY - Y;
+                moveItem(itemsX[itemIndex], itemsY[itemIndex]);
+            }
+        }
+
+
+
+
+
+        async function backgroundImage() {
+
+            const image = await fetch("layout.jpg")
+                .then(response => { return response.blob() })
+                .then(blob => { return URL.createObjectURL(blob) })
+
+            let data = await fetch("imageSize")
+                .then(body => { return body.text() })
+                .then(text => { return text.split(",") });
+            let background = document.getElementById("background");
+            background.style.height = data[1] + "px";
+            background.style.width = data[0] + "px";
+            background.style.position = "relative";
+            background.style.backgroundImage = "url(" + image + ")";
+        }
+
+
+        backgroundImage();
+        loadData('DevPosition.txt');
+        loadData('size.txt');
+        window.setInterval(getActiveList, 80);
+
+
+
+
+
+
+    </script>
+</body>
+
+</html>
